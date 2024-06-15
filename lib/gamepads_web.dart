@@ -45,17 +45,24 @@ class GamepadsWeb extends GamepadsPlatformInterface {
     web.Worker worker = web.Worker.new('worker.js');
     worker.addEventListener("message", (web.MessageEvent input) {
       if (input.data == "PING") {
-        _gamepads.forEach((id, gamepad) {
+        final jsGamepads = web.document.defaultView!.navigator.getGamepads();
+        final dartGamepads = jsGamepads.toDart.where((e) => e.isDefinedAndNotNull)
+          .map((e) => e!)
+          .toList(growable: false);
 
+        dartGamepads.forEach((gamepad) {
+          final id = gamepad.index.toString();
           bool containsKey =
               _oldButtons.containsKey(id) &&
               _oldAxes.containsKey(id);
 
           if (containsKey) {
             final buttons = gamepad.buttons.toDart;
-            debugPrint('buttons.length: ${buttons.length}');
+            // debugPrint('buttons.length: ${buttons.length}');
             buttons.forEachIndexed((idx, button) {
-              if (button != _oldButtons[id]!.elementAt(idx)) {
+              if (button.pressed != _oldButtons[id]!.elementAt(idx).pressed) {
+                debugPrint('reporting button event. button[$idx] != _oldButtons[$id]!.elementAt($idx)');
+                debugPrint('_oldButtons[id]!.elementAt(idx): ${_oldButtons[id]!.elementAt(idx)}');
                 // report event
                 _streamController.add(GamepadEvent(
                     gamepadId: id,
@@ -67,14 +74,15 @@ class GamepadsWeb extends GamepadsPlatformInterface {
               }
             });
 
-            _oldButtons[id] = List.of(buttons);
+            _oldButtons[id] = buttons;
             final axes = gamepad.axes.toDart
                 .map((e) => e.toDartDouble)
                 .toList(growable: false);
-            debugPrint('axes length: ${axes.length}');
+            // debugPrint('axes length: ${axes.length}');
             axes.forEachIndexed((idx, axis) {
-              debugPrint('axis $idx: $axis');
+              // debugPrint('axis $idx: $axis');
               if (axis - _oldAxes[id]!.elementAt(idx).abs() > epsilon) {
+                debugPrint('reporting axis event');
                 // report event
                 _streamController.add(GamepadEvent(
                     gamepadId: id,
@@ -86,7 +94,7 @@ class GamepadsWeb extends GamepadsPlatformInterface {
               }
             });
 
-            _oldAxes[id] = List.of(axes);
+            _oldAxes[id] = axes;
           } else {
             print('Did not contain key!');
           }
@@ -98,7 +106,7 @@ class GamepadsWeb extends GamepadsPlatformInterface {
     worker.postMessage("START".toJS);
   }
 
-  static const epsilon = 0.001;
+  static const epsilon = 0.01;
 
   final Map<String, web.Gamepad> _gamepads = {};
   final Map<String, List<web.GamepadButton>> _oldButtons = {};
