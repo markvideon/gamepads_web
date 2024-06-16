@@ -12,6 +12,7 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:gamepads_platform_interface/api/gamepad_controller.dart';
 import 'package:gamepads_platform_interface/api/gamepad_event.dart';
 import 'package:gamepads_platform_interface/gamepads_platform_interface.dart';
+import 'package:gamepads_web/supported_axis.dart';
 import 'package:web/web.dart' as web;
 
 /// A web implementation of the GamepadsWebPlatform of the GamepadsWeb plugin.
@@ -58,12 +59,8 @@ class GamepadsWeb extends GamepadsPlatformInterface {
 
           if (containsKey) {
             final buttons = gamepad.buttons.toDart;
-            // debugPrint('buttons.length: ${buttons.length}');
             buttons.forEachIndexed((idx, button) {
               if (button.pressed != _oldButtons[id]!.elementAt(idx).pressed) {
-                debugPrint('reporting button event. button[$idx] != _oldButtons[$id]!.elementAt($idx)');
-                debugPrint('_oldButtons[id]!.elementAt(idx): ${_oldButtons[id]!.elementAt(idx)}');
-                // report event
                 _streamController.add(GamepadEvent(
                     gamepadId: id,
                     timestamp: DateTime.now().millisecondsSinceEpoch,
@@ -78,22 +75,19 @@ class GamepadsWeb extends GamepadsPlatformInterface {
             final axes = gamepad.axes.toDart
                 .map((e) => e.toDartDouble)
                 .toList(growable: false);
-            // debugPrint('axes length: ${axes.length}');
             axes.forEachIndexed((idx, axis) {
-              // debugPrint('axis $idx: $axis');
-              if (axis - _oldAxes[id]!.elementAt(idx).abs() > epsilon) {
-                debugPrint('reporting axis event');
-                // report event
+              if ((axis - _oldAxes[id]!.elementAt(idx)).abs() > epsilon) {
+                final supportedAxis = SupportedAxis.fromIndex(idx);
                 _streamController.add(GamepadEvent(
                     gamepadId: id,
                     timestamp: DateTime.now().millisecondsSinceEpoch,
                     type: KeyType.analog,
                     key: idx.toString(),
-                    value: axis)
+                    value: supportedAxis.invert ? (axis * -1) : axis)
                 );
               }
-            });
 
+            });
             _oldAxes[id] = axes;
           } else {
             print('Did not contain key!');
